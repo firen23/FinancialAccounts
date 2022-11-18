@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinancialAccounts", "FinancialAccounts\FinancialAccounts.csproj", "{51A5813A-F563-443A-BE07-807CC3A4E023}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{86024417-9AF8-468D-B4DB-0BAA44AA8B10}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{51A5813A-F563-443A-BE07-807CC3A4E023}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{51A5813A-F563-443A-BE07-807CC3A4E023}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{51A5813A-F563-443A-BE07-807CC3A4E023}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{51A5813A-F563-443A-BE07-807CC3A4E023}.Release|Any CPU.Build.0 = Release|Any CPU
+		{86024417-9AF8-468D-B4DB-0BAA44AA8B10}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{86024417-9AF8-468D-B4DB-0BAA44AA8B10}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{86024417-9AF8-468D-B4DB-0BAA44AA8B10}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{86024417-9AF8-468D-B4DB-0BAA44AA8B10}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
