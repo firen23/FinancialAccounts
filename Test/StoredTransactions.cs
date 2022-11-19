@@ -1,12 +1,10 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using NUnit.Framework;
+using FinancialAccounts.Models;
 
 namespace Test;
 
-public class AccountTransactions
+public class StoredTransactions
 {
     public long ClientId { get; set; }
     
@@ -14,10 +12,17 @@ public class AccountTransactions
 
     public decimal GetSum()
     {
-        return Transactions.Where(transaction => transaction.IsAccepted).Sum(transaction => transaction.Sum);
+        return Transactions
+            .Where(transaction => transaction.State == TransactionState.Accepted)
+            .Sum(transaction => transaction.Sum);
     }
 
-    public AccountTransactions(long clientId)
+    public StoredTransactions()
+    {
+        
+    }
+
+    public StoredTransactions(long clientId)
     {
         ClientId = clientId;
         Transactions = new List<Transaction>();
@@ -28,7 +33,7 @@ public class Transaction
 {
     public decimal Sum { get; set; }
     
-    public bool IsAccepted { get; set; }
+    public TransactionState State { get; set; }
     
     public string ErrorMessage { get; set; }
 }

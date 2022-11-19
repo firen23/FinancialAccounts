@@ -7,6 +7,7 @@ public class FinancialAccountsContext : DbContext
 {
     public DbSet<Client> Clients { get; set; } = null!;
     public DbSet<Account> Accounts { get; set; } = null!;
+    public DbSet<AccountTransaction> AccountTransactions { get; set; } = null!;
     
     public FinancialAccountsContext(DbContextOptions<FinancialAccountsContext> options) : base(options)
     {
@@ -19,6 +20,7 @@ public class FinancialAccountsContext : DbContext
         // modelBuilder.Entity<Account>().ToTable(t => 
         //     t.HasCheckConstraint("Balance", "Balance >= 0"));
         modelBuilder.Entity<Account>().ToTable("Account");
+        modelBuilder.Entity<AccountTransaction>().ToTable("AccountTransaction");
     }
 
     public void Reset()

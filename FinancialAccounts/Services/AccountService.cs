@@ -1,5 +1,3 @@
-using System.Data;
-using System.Transactions;
 using Microsoft.EntityFrameworkCore;
 using FinancialAccounts.Data;
 using FinancialAccounts.Dto;
@@ -10,177 +8,238 @@ namespace FinancialAccounts.Services;
 
 public class AccountService : IAccountService
 {
-    private readonly FinancialAccountsContext _context;
+    private readonly IDbContextFactory<FinancialAccountsContext> _contextFactory;
     private const int UpdateMaxAttempts = 10;
 
-    public AccountService(FinancialAccountsContext context)
+    public AccountService(IDbContextFactory<FinancialAccountsContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
     
     public async Task<ClientBalanceDto> GetBalance(long clientId)
     {
-        var account = await _context.Accounts
-            .FirstOrDefaultAsync(account => account.ClientId == clientId);
-        
-        if (account is null)
+        ClientBalanceDto clientBalanceDto;
+        using (var context = await _contextFactory.CreateDbContextAsync())
         {
-            throw (new KeyNotFoundException($"Client with id {clientId} not found"));
+            var account = await context.Accounts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(account => account.ClientId == clientId);
+
+            if (account is null)
+            {
+                throw (new KeyNotFoundException($"Client with id {clientId} not found"));
+            }
+
+            clientBalanceDto = new ClientBalanceDto
+            {
+                ClientId = clientId,
+                Balance = account.Balance
+            };
         }
-        
-        var clientBalanceDto = new ClientBalanceDto
-        {
-            ClientId = clientId,
-            Balance = account.Balance
-        };
+
         return clientBalanceDto;
     }
 
     public async Task Accrue(AccountTransactionDto accountTransactionDto)
     {
-        var account = _context.Accounts
-                .FirstOrDefault(account => account.ClientId == accountTransactionDto.ClientId);
-        
-        if (account is null)
+        using (var context = await _contextFactory.CreateDbContextAsync())
         {
-            throw new KeyNotFoundException($"Client with id {accountTransactionDto.ClientId} not found");
-        }
+            var account = await context.Accounts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(account => account.ClientId == accountTransactionDto.ClientId);
 
-        account.Balance += accountTransactionDto.Sum;
-
-        var saved = false;
-        var attemptCount = 0;
-
-        while (!saved && attemptCount < UpdateMaxAttempts)
-        {
-            try
+            if (account is null)
             {
-                await _context.SaveChangesAsync();
-                saved = true;
+                throw new KeyNotFoundException($"Client id {accountTransactionDto.ClientId} not found");
             }
-            catch (DbUpdateConcurrencyException e)
-            {
-                foreach (var entry in e.Entries)
-                {
-                    if (entry.Entity is Account)
-                    {
-                        var proposedValues = entry.CurrentValues;
-                        var databaseValues = await entry.GetDatabaseValuesAsync();
-                        
-                        foreach (var property in proposedValues.Properties)
-                        {
-                            var databaseValue = databaseValues[property];
-                            proposedValues[property] = databaseValue;
-                        }
-                        
-                        var currentBalance = databaseValues.GetValue<decimal>("Balance");
-                        proposedValues["Balance"] = currentBalance + accountTransactionDto.Sum;
 
-                        // Refresh original values to bypass next concurrency check
-                        entry.OriginalValues.SetValues(databaseValues);
-                        attemptCount++;
-                    }
-                    else
-                    {
-                        throw new NotSupportedException(
-                            $"Don't know how to handle concurrency conflicts for {entry.Metadata.Name}");
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                throw new DbUpdateException(
-                    $"Failed to accrue {accountTransactionDto.Sum} " +
-                    $"to client id {accountTransactionDto.ClientId}: {e.Message}");
-            }
-        }
+            var transactionGuid = Guid.NewGuid();
 
-        if (attemptCount == UpdateMaxAttempts)
-        {
-            throw new DbUpdateException(
-                $"Failed to accrue {accountTransactionDto.Sum} to client id " +
-                $"{accountTransactionDto.ClientId} after {UpdateMaxAttempts} attempts");
+            var accountTransaction = new AccountTransaction
+            {
+                AccountId = account.Id,
+                Guid = transactionGuid.ToString(),
+                Sum = Math.Abs(accountTransactionDto.Sum),
+                Timestamp = DateTime.UtcNow,
+                State = TransactionState.Pending
+            };
+
+            AddAccountTransaction(context, accountTransaction);
+            AcceptPendingTransactions(context, account.Id);
+
+            var transactionState = GetTransactionState(context, accountTransaction);
+            if (transactionState == TransactionState.Rejected)
+            {
+                throw new DbUpdateException($"Client id {accountTransactionDto.ClientId} " +
+                                            $"has insufficient funds");
+            }
         }
     }
 
     public async Task Debit(AccountTransactionDto accountTransactionDto)
     {
-        var account = _context.Accounts
-            .FirstOrDefault(account => account.ClientId == accountTransactionDto.ClientId);
-        
-        if (account is null)
+        using (var context = await _contextFactory.CreateDbContextAsync())
         {
-            throw new KeyNotFoundException($"Client id {accountTransactionDto.ClientId} not found");
+            var account = await context.Accounts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(account => account.ClientId == accountTransactionDto.ClientId);
+
+            if (account is null)
+            {
+                throw new KeyNotFoundException($"Client id {accountTransactionDto.ClientId} not found");
+            }
+
+            var transactionGuid = Guid.NewGuid();
+
+            var accountTransaction = new AccountTransaction
+            {
+                AccountId = account.Id,
+                Guid = transactionGuid.ToString(),
+                Sum = (-1) * Math.Abs(accountTransactionDto.Sum),
+                Timestamp = DateTime.UtcNow,
+                State = TransactionState.Pending
+            };
+
+            AddAccountTransaction(context, accountTransaction);
+            AcceptPendingTransactions(context, account.Id);
+
+            var transactionState = GetTransactionState(context, accountTransaction);
+            if (transactionState == TransactionState.Rejected)
+            {
+                throw new DbUpdateException($"Client id {accountTransactionDto.ClientId} " +
+                                            $"has insufficient funds");
+            }
         }
+    }
 
-        if (account.Balance < accountTransactionDto.Sum)
+    private void AddAccountTransaction(FinancialAccountsContext context, AccountTransaction accountTransaction)
+    {
+        using (var dbTransaction = context.Database.BeginTransaction(IsolationLevel.ReadCommitted))
         {
-            throw new DbUpdateException($"Client id {accountTransactionDto.ClientId} has insufficient funds");
-        }
-        
-        account.Balance -= accountTransactionDto.Sum;
-        
-        var saved = false;
-        var attemptCount = 0;
-
-        while (!saved && attemptCount < UpdateMaxAttempts)
-        {
-
             try
             {
-                await _context.SaveChangesAsync();
-                saved = true;
-            }
-            catch (DbUpdateConcurrencyException e)
-            {
-                foreach (var entry in e.Entries)
-                {
-                    if (entry.Entity is Account)
-                    {
-                        var proposedValues = entry.CurrentValues;
-                        var databaseValues = await entry.GetDatabaseValuesAsync();
-                        
-                        var currentBalance = databaseValues.GetValue<decimal>("Balance");
-                        var resultBalance = currentBalance - accountTransactionDto.Sum;
-                        
-                        if (resultBalance < 0)
-                        {
-                            // Вернуть значение из бд в контекст
-                            throw new DbUpdateException($"Client id {accountTransactionDto.ClientId} " +
-                                                        $"has insufficient funds");
-                        }
 
-                        foreach (var property in proposedValues.Properties)
-                        {
-                            var databaseValue = databaseValues[property];
-                            proposedValues[property] = databaseValue;
-                        }
-
-                        proposedValues["Balance"] = resultBalance;
-
-                        // Refresh original values to bypass next concurrency check
-                        entry.OriginalValues.SetValues(databaseValues);
-                        attemptCount++;
-                    }
-                    else
-                    {
-                        throw new NotSupportedException(
-                            $"Don't know how to handle concurrency conflicts for {entry.Metadata.Name}");
-                    }
-                }
+                context.Entry(accountTransaction).State = EntityState.Added;
+                context.AccountTransactions.Add(accountTransaction);
+                context.SaveChanges();
+                dbTransaction.Commit();
             }
             catch (Exception e)
             {
-                throw new DbUpdateException($"Failed to debit {accountTransactionDto.Sum} " +
-                                            $"to client id {accountTransactionDto.ClientId}: {e.Message}");
+                dbTransaction.Rollback();
+                throw;
             }
         }
-        
-        if (attemptCount == UpdateMaxAttempts)
+    }
+
+    private void AcceptPendingTransactions(FinancialAccountsContext context, long accountId)
+    {
+        var transaction = GetNextPendingTransaction(context, accountId);
+        var updateAttempts = 0;
+
+        while (transaction is not null && updateAttempts < UpdateMaxAttempts)
         {
-            throw new DbUpdateException(
-                $"Failed to accrue {accountTransactionDto.Sum} to client id " +
-                $"{accountTransactionDto.ClientId} after {UpdateMaxAttempts} attempts");
+            using (var dbTransaction = context.Database.BeginTransaction(IsolationLevel.ReadCommitted))
+            {
+                try
+                {
+                    var account = context.Accounts
+                        .FirstOrDefault(acc => acc.Id == transaction.AccountId);
+        
+                    if (account is null)
+                    {
+                        throw new KeyNotFoundException($"Account id {transaction.AccountId} not found");
+                    }
+                    
+                    var newBalance = account.Balance + transaction.Sum;
+
+                    if (newBalance < 0)
+                    {
+                        transaction.State = TransactionState.Rejected;
+                    }
+                    else
+                    {
+                        account.Balance = newBalance;
+                        account.LastTransactionId = transaction.Id;
+                        transaction.State = TransactionState.Accepted;
+                    }
+
+                    context.SaveChanges();
+                    dbTransaction.Commit();
+                }
+                catch (DbUpdateConcurrencyException e)
+                {
+                    // Transaction already processed
+                    dbTransaction.Rollback();
+                    HandleDbUpdateConcurrencyException(e);
+                    updateAttempts++;
+                }
+                catch (Exception e)
+                {
+                    dbTransaction.Rollback();
+                    // Some other exception
+                    throw new DbUpdateException($"Failed to debit {transaction.Sum} " +
+                                                $"to account id {transaction.AccountId}: {e.Message}");
+                }
+            }
+            
+            transaction = GetNextPendingTransaction(context, accountId);
+        }
+
+        if (updateAttempts == UpdateMaxAttempts)
+        {
+            throw new DbUpdateConcurrencyException($"Fail to apply accountTransaction id {transaction.Id}");
+        }
+    }
+
+    private AccountTransaction? GetNextPendingTransaction(FinancialAccountsContext context, long accountId)
+    {
+        return context.AccountTransactions
+            .Where(transaction => transaction.AccountId == accountId && transaction.State == TransactionState.Pending)
+            .OrderBy(transaction => transaction.Id)
+            .FirstOrDefault();
+    }
+
+    private TransactionState GetTransactionState(FinancialAccountsContext context, AccountTransaction accountTransaction)
+    {
+        var transaction = context.AccountTransactions
+            .AsNoTracking()
+            .FirstOrDefault(transaction => transaction.AccountId == accountTransaction.AccountId &&
+                                           transaction.Guid.Equals(accountTransaction.Guid) &&
+                                           transaction.Sum == accountTransaction.Sum);
+
+        if (transaction is null)
+        {
+            throw new ArgumentException($"Unable to find transaction " +
+                                        $"| account id {accountTransaction.AccountId}, guid {accountTransaction.Guid}");
+        }
+        
+        return transaction.State;
+    }
+
+    private void HandleDbUpdateConcurrencyException(DbUpdateConcurrencyException exception)
+    {
+        foreach (var entry in exception.Entries)
+        {
+            if (entry.Entity is Account or AccountTransaction)
+            {
+                var proposedValues = entry.CurrentValues;
+                var databaseValues = entry.GetDatabaseValues();
+                        
+                foreach (var property in proposedValues.Properties)
+                {
+                    var databaseValue = databaseValues[property];
+                    proposedValues[property] = databaseValue;
+                }
+
+                // Refresh original values to bypass next concurrency check
+                entry.OriginalValues.SetValues(databaseValues);
+            }
+            else
+            {
+                throw new NotSupportedException(
+                    $"Don't know how to handle concurrency conflicts for {entry.Metadata.Name}");
+            }
         }
     }
 }

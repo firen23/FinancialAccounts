@@ -366,6 +366,10 @@ public class TestData
             }
         };
         
-        Accounts = Clients.Select(client => new Account {Balance = 0, Client = client}).ToList();
+        Accounts = Clients.Select(client => new Account
+        {
+            Balance = 0,
+            Client = client
+        }).ToList();
     }
 }

@@ -8,65 +8,85 @@ namespace FinancialAccounts.Services;
 
 public class ClientService : IClientService
 {
-    private readonly FinancialAccountsContext _context;
+    private readonly IDbContextFactory<FinancialAccountsContext> _contextFactory;
     
-    public ClientService(FinancialAccountsContext context)
+    public ClientService(IDbContextFactory<FinancialAccountsContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
     
     public async Task<List<ClientDto>> GetClientsDtos()
     {
-        var clients =  await _context.Clients.ToListAsync();
-        var clientsDtos = clients.Select(ClientDtoConverter.ToClientDto).ToList();
-        return clientsDtos;
+        using (var context = await _contextFactory.CreateDbContextAsync())
+        {
+            var clients =  await context.Clients.ToListAsync();
+            var clientsDtos = clients.Select(ClientDtoConverter.ToClientDto).ToList();
+            return clientsDtos;            
+        }
     }
 
     public async Task<ClientDto> GetClientDto(long id)
     {
-        var client = await _context.Clients.FirstOrDefaultAsync(client => client.Id == id);
-        if (client is null)
+        ClientDto clientDto;
+        using (var context = await _contextFactory.CreateDbContextAsync())
         {
-            throw (new KeyNotFoundException($"Client with id {id} not found"));
+            var client = await context.Clients
+                .AsNoTracking()
+                .FirstOrDefaultAsync(client => client.Id == id);
+            if (client is null)
+            {
+                throw (new KeyNotFoundException($"Client with id {id} not found"));
+            }
+
+            clientDto = ClientDtoConverter.ToClientDto(client);
         }
 
-        return ClientDtoConverter.ToClientDto(client);
+        return clientDto;
     }
 
     public async Task AddClient(ClientDto clientDto)
     {
-        var client = ClientDtoConverter.ToClient(clientDto);
-        await _context.Clients.AddAsync(client);
-        var account = new Account { Balance = 0, Client = client };
-        await _context.Accounts.AddAsync(account);
-        await _context.SaveChangesAsync();
+        using (var context = await _contextFactory.CreateDbContextAsync())
+        {
+            var client = ClientDtoConverter.ToClient(clientDto);
+            await context.Clients.AddAsync(client);
+            var account = new Account {Balance = 0, Client = client};
+            await context.Accounts.AddAsync(account);
+            await context.SaveChangesAsync();
+        }
     }
 
     public async Task UpdateClient(ClientDto clientDto)
     {
-        var client = await _context.Clients.FirstOrDefaultAsync(client => client.Id == clientDto.Id);
-        if (client is null)
+        using (var context = await _contextFactory.CreateDbContextAsync())
         {
-            throw (new KeyNotFoundException($"Client with id {clientDto.Id} not found"));
+            var client = await context.Clients.FirstOrDefaultAsync(client => client.Id == clientDto.Id);
+            if (client is null)
+            {
+                throw (new KeyNotFoundException($"Client with id {clientDto.Id} not found"));
+            }
+
+            client.FirstName = clientDto.FirstName;
+            client.LastName = clientDto.LastName;
+            client.Patronymic = clientDto.Patronymic;
+            client.Birthdate = clientDto.Birthdate;
+            context.Clients.Update(client);
+            await context.SaveChangesAsync();
         }
-        
-        client.FirstName = clientDto.FirstName;
-        client.LastName = clientDto.LastName;
-        client.Patronymic = clientDto.Patronymic;
-        client.Birthdate = clientDto.Birthdate;
-        _context.Clients.Update(client);
-        await _context.SaveChangesAsync();
     }
 
     public async Task DeleteClient(long id)
     {
-        var client = await _context.Clients.FirstOrDefaultAsync(client => client.Id == id);
-        if (client is null)
+        using (var context = await _contextFactory.CreateDbContextAsync())
         {
-            throw (new KeyNotFoundException($"Client with id {id} not found"));
-        }
+            var client = await context.Clients.FirstOrDefaultAsync(client => client.Id == id);
+            if (client is null)
+            {
+                throw (new KeyNotFoundException($"Client with id {id} not found"));
+            }
 
-        _context.Clients.Remove(client);
-        await _context.SaveChangesAsync();
+            context.Clients.Remove(client);
+            await context.SaveChangesAsync();
+        }
     }
 }

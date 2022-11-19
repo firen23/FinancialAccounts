@@ -23,7 +23,7 @@ public static class Program
             // Add services to the container
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer(); // TODO: is it need?
-            builder.Services.AddDbContext<FinancialAccountsContext>(options =>
+            builder.Services.AddDbContextFactory<FinancialAccountsContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
             builder.Services.AddScoped<IClientService, ClientService>();
             builder.Services.AddScoped<IAccountService, AccountService>();
