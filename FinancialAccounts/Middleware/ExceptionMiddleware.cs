@@ -1,5 +1,4 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinancialAccounts.Middleware;

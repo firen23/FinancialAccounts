@@ -20,7 +20,9 @@ public class ClientService : IClientService
         using (var context = await _contextFactory.CreateDbContextAsync())
         {
             var clients =  await context.Clients.ToListAsync();
-            var clientsDtos = clients.Select(ClientDtoConverter.ToClientDto).ToList();
+            var clientsDtos = clients
+                .Select(ClientDtoConverter.ToClientDto)
+                .ToList();
             return clientsDtos;            
         }
     }
@@ -60,7 +62,8 @@ public class ClientService : IClientService
     {
         using (var context = await _contextFactory.CreateDbContextAsync())
         {
-            var client = await context.Clients.FirstOrDefaultAsync(client => client.Id == clientDto.Id);
+            var client = await context.Clients
+                .FirstOrDefaultAsync(client => client.Id == clientDto.Id);
             if (client is null)
             {
                 throw (new KeyNotFoundException($"Client with id {clientDto.Id} not found"));
@@ -79,7 +82,8 @@ public class ClientService : IClientService
     {
         using (var context = await _contextFactory.CreateDbContextAsync())
         {
-            var client = await context.Clients.FirstOrDefaultAsync(client => client.Id == id);
+            var client = await context.Clients
+                .FirstOrDefaultAsync(client => client.Id == id);
             if (client is null)
             {
                 throw (new KeyNotFoundException($"Client with id {id} not found"));

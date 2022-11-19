@@ -23,7 +23,6 @@ public class AccountParallelTests
     private const int OperationsInThread = 100;
     private const int ThreadsCount = 10;
 
-    private DbContextOptions<FinancialAccountsContext> _options;
     private IDbContextFactory<FinancialAccountsContext> _contextFactory;
 
     [SetUp]

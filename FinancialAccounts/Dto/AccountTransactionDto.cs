@@ -5,12 +5,12 @@ namespace FinancialAccounts.Dto;
 public class AccountTransactionDto
 {
     /// <summary>
-    /// 
+    /// ClientId
     /// </summary>
     public long ClientId { get; set; }
     
     /// <summary>
-    /// 
+    /// Transaction sum
     /// </summary>
     [Range(0.01, float.MaxValue, ErrorMessage = "Sum must be positive")]
     [DataType(DataType.Currency, ErrorMessage = "Must be a Decimal!")]

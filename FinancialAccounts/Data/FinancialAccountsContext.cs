@@ -17,9 +17,8 @@ public class FinancialAccountsContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Client>().ToTable("Client");
-        // modelBuilder.Entity<Account>().ToTable(t => 
-        //     t.HasCheckConstraint("Balance", "Balance >= 0"));
-        modelBuilder.Entity<Account>().ToTable("Account");
+        modelBuilder.Entity<Account>().ToTable(t => 
+            t.HasCheckConstraint("Balance", "Balance >= 0"));
         modelBuilder.Entity<AccountTransaction>().ToTable("AccountTransaction");
     }
 
