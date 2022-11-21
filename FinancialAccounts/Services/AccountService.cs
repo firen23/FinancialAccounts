@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using FinancialAccounts.Data;
 using FinancialAccounts.Dto;
+using FinancialAccounts.Exceptions;
 using FinancialAccounts.Models;
 using IsolationLevel = System.Data.IsolationLevel;
 
@@ -27,7 +28,7 @@ public class AccountService : IAccountService
 
             if (account is null)
             {
-                throw (new KeyNotFoundException($"Client with id {clientId} not found"));
+                throw new ClientNotFoundException(clientId);
             }
 
             clientBalanceDto = new ClientBalanceDto
@@ -45,12 +46,11 @@ public class AccountService : IAccountService
         using (var context = await _contextFactory.CreateDbContextAsync())
         {
             var account = await context.Accounts
-                .AsNoTracking()
                 .FirstOrDefaultAsync(account => account.ClientId == accountTransactionDto.ClientId);
 
             if (account is null)
             {
-                throw new KeyNotFoundException($"Client id {accountTransactionDto.ClientId} not found");
+                throw new ClientNotFoundException(accountTransactionDto.ClientId);
             }
 
             var transactionGuid = Guid.NewGuid();
@@ -81,12 +81,11 @@ public class AccountService : IAccountService
         using (var context = await _contextFactory.CreateDbContextAsync())
         {
             var account = await context.Accounts
-                .AsNoTracking()
                 .FirstOrDefaultAsync(account => account.ClientId == accountTransactionDto.ClientId);
 
             if (account is null)
             {
-                throw new KeyNotFoundException($"Client id {accountTransactionDto.ClientId} not found");
+                throw new ClientNotFoundException(accountTransactionDto.ClientId);
             }
 
             var transactionGuid = Guid.NewGuid();
@@ -144,11 +143,12 @@ public class AccountService : IAccountService
                 try
                 {
                     var account = context.Accounts
+                        .Include(account => account.Client)
                         .FirstOrDefault(acc => acc.Id == transaction.AccountId);
         
                     if (account is null)
                     {
-                        throw new KeyNotFoundException($"Account id {transaction.AccountId} not found");
+                        throw new ClientNotFoundException(transaction.Account.ClientId);
                     }
                     
                     var newBalance = account.Balance + transaction.Sum;
@@ -210,7 +210,7 @@ public class AccountService : IAccountService
 
         if (transaction is null)
         {
-            throw new ArgumentException($"Unable to find transaction " +
+            throw new ArgumentException("Unable to find transaction " +
                                         $"| account id {accountTransaction.AccountId}, guid {accountTransaction.Guid}");
         }
         

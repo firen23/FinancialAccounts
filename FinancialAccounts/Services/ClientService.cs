@@ -1,5 +1,6 @@
 using FinancialAccounts.Data;
 using FinancialAccounts.Dto;
+using FinancialAccounts.Exceptions;
 using FinancialAccounts.Models;
 using FinancialAccounts.Utility;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,7 @@ public class ClientService : IClientService
         _contextFactory = contextFactory;
     }
     
-    public async Task<List<ClientDto>> GetClientsDtos()
+    public async Task<List<ClientDto>> GetClientsDto()
     {
         using (var context = await _contextFactory.CreateDbContextAsync())
         {
@@ -37,7 +38,7 @@ public class ClientService : IClientService
                 .FirstOrDefaultAsync(client => client.Id == id);
             if (client is null)
             {
-                throw (new KeyNotFoundException($"Client with id {id} not found"));
+                throw new ClientNotFoundException(id);
             }
 
             clientDto = ClientDtoConverter.ToClientDto(client);
@@ -46,7 +47,7 @@ public class ClientService : IClientService
         return clientDto;
     }
 
-    public async Task AddClient(ClientDto clientDto)
+    public async Task AddClientDto(ClientDto clientDto)
     {
         using (var context = await _contextFactory.CreateDbContextAsync())
         {
@@ -58,7 +59,7 @@ public class ClientService : IClientService
         }
     }
 
-    public async Task UpdateClient(ClientDto clientDto)
+    public async Task UpdateClientDto(ClientDto clientDto)
     {
         using (var context = await _contextFactory.CreateDbContextAsync())
         {
@@ -66,13 +67,10 @@ public class ClientService : IClientService
                 .FirstOrDefaultAsync(client => client.Id == clientDto.Id);
             if (client is null)
             {
-                throw (new KeyNotFoundException($"Client with id {clientDto.Id} not found"));
+                throw new ClientNotFoundException(clientDto.Id.Value);
             }
-
-            client.FirstName = clientDto.FirstName;
-            client.LastName = clientDto.LastName;
-            client.Patronymic = clientDto.Patronymic;
-            client.Birthdate = clientDto.Birthdate;
+            
+            ClientDtoConverter.UpdateFromClientDto(client, clientDto);
             context.Clients.Update(client);
             await context.SaveChangesAsync();
         }
@@ -82,15 +80,23 @@ public class ClientService : IClientService
     {
         using (var context = await _contextFactory.CreateDbContextAsync())
         {
-            var client = await context.Clients
-                .FirstOrDefaultAsync(client => client.Id == id);
-            if (client is null)
+            try
             {
-                throw (new KeyNotFoundException($"Client with id {id} not found"));
+                context.Clients.Remove(new Client {Id = id});
+                await context.SaveChangesAsync();
             }
-
-            context.Clients.Remove(client);
-            await context.SaveChangesAsync();
+            catch
+            {
+                if (!context.Clients.Any(client => client.Id == id))
+                {
+                    throw new ClientNotFoundException(id);
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            
         }
     }
 }

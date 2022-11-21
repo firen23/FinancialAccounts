@@ -1,4 +1,5 @@
 using System.Net;
+using FinancialAccounts.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinancialAccounts.Middleware;
@@ -30,12 +31,12 @@ public class ExceptionMiddleware
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = exception switch
         {
-            KeyNotFoundException => (int) HttpStatusCode.NotFound,
+            ClientNotFoundException => (int) HttpStatusCode.NotFound,
             DbUpdateException => (int) HttpStatusCode.Forbidden,
             _ => (int) HttpStatusCode.InternalServerError
         };
 
-        await context.Response.WriteAsync(new ErrorDetails()
+        await context.Response.WriteAsync(new ErrorDetails
         {
             StatusCode = context.Response.StatusCode,
             Message = exception.Message

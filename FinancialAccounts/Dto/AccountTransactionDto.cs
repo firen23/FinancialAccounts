@@ -12,7 +12,7 @@ public class AccountTransactionDto
     /// <summary>
     /// Transaction sum
     /// </summary>
-    [Range(0.01, float.MaxValue, ErrorMessage = "Sum must be positive")]
+    [Range(0.01d, double.MaxValue, ErrorMessage = "Sum must be positive")]
     [DataType(DataType.Currency, ErrorMessage = "Must be a Decimal!")]
     public decimal Sum { get; set; }
 }

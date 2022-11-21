@@ -21,9 +21,9 @@ public class ClientController : ControllerBase
     /// <returns>List of <c>ClientDto</c> objects.</returns>
     [HttpGet]
     [Route("all")]
-    public async Task<ActionResult<IEnumerable<ClientDto>>> Get()
+    public async Task<ActionResult<IEnumerable<ClientDto>>> GetClientDto()
     {
-        var clientsDtos = await _service.GetClientsDtos();
+        var clientsDtos = await _service.GetClientsDto();
         return Ok(clientsDtos);
     }
 
@@ -34,7 +34,7 @@ public class ClientController : ControllerBase
     /// <returns>ClientDto</returns>
     [HttpGet]
     [Route("{id:long}")]
-    public async Task<ActionResult<ClientDto>> Get(long id)
+    public async Task<ActionResult<ClientDto>> GetAllClientsDto(long id)
     {
         var clientDto = await _service.GetClientDto(id);
         return Ok(clientDto);
@@ -46,9 +46,9 @@ public class ClientController : ControllerBase
     /// <param name="clientDto">ClientDto</param>
     [HttpPost]
     [Route("add")]
-    public async Task<ActionResult> Post(ClientDto clientDto)
+    public async Task<ActionResult> AddClientDto(ClientDto clientDto)
     {
-        await _service.AddClient(clientDto);
+        await _service.AddClientDto(clientDto);
         return Ok();
     }
 
@@ -58,9 +58,9 @@ public class ClientController : ControllerBase
     /// <param name="clientDto">ClientDto</param>
     [HttpPut]
     [Route("update")]
-    public async Task<ActionResult> Put(ClientDto clientDto)
+    public async Task<ActionResult> UpdateClientDto(ClientDto clientDto)
     {
-        await _service.UpdateClient(clientDto);
+        await _service.UpdateClientDto(clientDto);
         return Ok();
     }
 

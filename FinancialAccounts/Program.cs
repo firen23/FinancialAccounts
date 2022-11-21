@@ -22,7 +22,7 @@ public static class Program
 
             // Add services to the container
             builder.Services.AddControllers();
-            builder.Services.AddEndpointsApiExplorer(); // TODO: is it need?
+            builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddDbContextFactory<FinancialAccountsContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
             builder.Services.AddScoped<IClientService, ClientService>();
@@ -37,7 +37,7 @@ public static class Program
 
             // NLog: Setup NLog for Dependency Injection
             builder.Logging.ClearProviders();
-            builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
+            builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
             builder.Host.UseNLog();
 
             var app = builder.Build();

@@ -27,4 +27,12 @@ public static class ClientDtoConverter
             Birthdate = client.Birthdate
         };
     }
+
+    public static void UpdateFromClientDto(Client client, ClientDto clientDto)
+    {
+        client.FirstName = clientDto.FirstName;
+        client.LastName = clientDto.LastName;
+        client.Patronymic = clientDto.Patronymic;
+        client.Birthdate = clientDto.Birthdate;
+    }
 }
